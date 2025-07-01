@@ -451,40 +451,54 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 @spam_protected
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the help command"""
     if not update.effective_user:
         return
     
-    if await is_developer(update.effective_user.id):
-        help_text = f"""
+    # Determine if the user is the developer
+    is_dev = await is_developer(update.effective_user.id)
+    
+    help_text = f"""
 {BOT_ART}
-{EMOJI_HELP} <b>Developer Commands</b>:
+{EMOJI_HELP} <b>{(f"Developer" if is_dev else "Admin")} Commands</b>:
 
-• /add <channel_id> <days> - Approve new channel/group for X days
-• /channel - List approved channels
-• /pending - List pending groups
-• /stats - Show bot statistics
-• /broadcast - Send message to all channels
-
-{EMOJI_ADMIN} <b>Admin Commands</b>:
-• /addwords - Add filtered words
-• /removeword - Remove filtered word
-• /listwords - List filtered words
-• /help - Show this help message
-• /alive - Check bot status
-"""
-    else:
-        help_text = f"""
-{BOT_ART}
-{EMOJI_HELP} <b>Admin Commands</b>:
-
+{EMOJI_ADMIN} <b>Moderation Commands:</b>
 • /addwords word1 word2 - Add filtered words
 • /removeword word - Remove filtered word
 • /listwords - List filtered words
-• /help - Show this help message
-• /alive - Check bot status
 • /stats - Show channel statistics
+• /alive - Check bot status
+• /id - Get chat ID
 """
-    await update.message.reply_text(help_text, parse_mode='HTML')
+
+    if is_dev:
+        help_text += f"""
+{EMOJI_DEVELOPER} <b>Developer Commands:</b>
+• /add channel_id days - Approve new channel
+• /channel - List approved channels
+• /pending - List pending groups
+• /broadcast - Broadcast message to all channels
+"""
+
+    # Create keyboard buttons
+    keyboard = [
+        [InlineKeyboardButton(f"{EMOJI_ADD} Back to Start", callback_data="back_to_start")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    if update.callback_query:
+        await update.callback_query.edit_message_text(
+            text=help_text,
+            parse_mode='HTML',
+            reply_markup=reply_markup
+        )
+        await update.callback_query.answer()
+    else:
+        await update.message.reply_text(
+            text=help_text,
+            parse_mode='HTML',
+            reply_markup=reply_markup
+        )
 
 async def help_button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the help button callback"""
@@ -492,44 +506,7 @@ async def help_button_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     
     if query.data == "help_command":
-        if await is_developer(query.from_user.id):
-            help_text = f"""
-{BOT_ART}
-{EMOJI_HELP} <b>Developer Commands</b>:
-
-• /add <channel_id> <days> - Approve new channel/group for X days
-• /channel - List approved channels
-• /pending - List pending groups
-• /stats - Show bot statistics
-• /broadcast - Send message to all channels
-
-{EMOJI_ADMIN} <b>Admin Commands</b>:
-• /addwords - Add filtered words
-• /removeword - Remove filtered word
-• /listwords - List filtered words
-• /help - Show this help message
-• /alive - Check bot status
-"""
-        else:
-            help_text = f"""
-{BOT_ART}
-{EMOJI_HELP} <b>Admin Commands</b>:
-
-• /addwords word1 word2 - Add filtered words
-• /removeword word - Remove filtered word
-• /listwords - List filtered words
-• /help - Show this help message
-• /alive - Check bot status
-• /stats - Show channel statistics
-"""
-        
-        await query.edit_message_text(
-            text=help_text,
-            parse_mode='HTML',
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"{EMOJI_ADD} Back to Start", callback_data="back_to_start")]
-            ])
-        )
+        await help_command(update, context)
     elif query.data == "back_to_start":
         welcome_msg = f"""
 {BOT_ART}
